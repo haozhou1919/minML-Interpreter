@@ -19,7 +19,7 @@ data Expr -- Define a data type 'Expr' for representing expressions in a languag
 data Lit -- Define a data type 'Lit' for literal values
   = LInt Integer            -- An integer literal
   | LBool Bool              -- A boolean literal
-  | LArray [Lit]           -- An array literal
+  | LArray [Expr]           -- An array literal
   deriving (Show, Eq, Ord)  -- Derive Show, Eq, and Ord instances for convenience
 
 -- TODO-1: Add a Cons operator ✓
@@ -27,12 +27,14 @@ data Lit -- Define a data type 'Lit' for literal values
 data Binop = Add | Sub | Mul | Eql | Cons | Concat -- Define a data type 'Binop' for binary operations
   deriving (Eq, Ord, Show)
 
--- TODO-2: Add a Pattern struct, capture the following cases:
+-- TODO-2: Add a Pattern struct, capture the following cases: ✓
 -- let f x = ...      -- any identifier
 -- let f 0 = ...      -- any int literal
 -- let f True = ...   -- any bool literal
 -- let f [] = ...     -- empty list
 -- let f (x:xs) = ... -- non empty list
+data Pattern = PVar Var | PCons Var Var | PLit Lit 
+  deriving (Show, Eq, Ord)
 
 type Decl = (String, Expr)
 

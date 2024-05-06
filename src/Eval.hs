@@ -15,9 +15,11 @@ import qualified Data.Map as Map
 data Value
   = VInt Integer
   | VBool Bool
-  | VClosure String Expr TermEnv
-  -- TODO-1: Create a way to store arrays (VArray)
-  -- TODO-2: Edit VClosure to store a list of patterns and expressions
+  --| VClosure String Expr TermEnv
+  | VArray [Value]
+  | VClosure [(Pattern, Expr)] TermEnv -- This one is flexible per your implementation
+  -- TODO-1: Create a way to store arrays (VArray) ✓
+  -- TODO-2: Edit VClosure to store a list of patterns and expressions 
 
 type TermEnv = Map.Map String Value
 type Interpreter t = Identity t
