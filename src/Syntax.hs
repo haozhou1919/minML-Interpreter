@@ -19,7 +19,7 @@ data Expr -- Define a data type 'Expr' for representing expressions in a languag
 data Lit -- Define a data type 'Lit' for literal values
   = LInt Integer            -- An integer literal
   | LBool Bool              -- A boolean literal
-  | LArray [Expr]           -- An array literal
+  | LArray [Lit]            -- An array literal                   [x] need REDO
   deriving (Show, Eq, Ord)  -- Derive Show, Eq, and Ord instances for convenience
 
 -- TODO-1: Add a Cons operator ✓
