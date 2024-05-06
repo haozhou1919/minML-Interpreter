@@ -36,15 +36,11 @@ bool c = (reserved "True" >> return (c (LBool True)))
     <|> (reserved "False" >> return (c (LBool False)))
 
 -- https://hackage.haskell.org/package/parsec-3.1.17.0/docs/Text-Parsec.html#g:2
-list :: (Lit -> a) -> Parser Expr
+list :: (Lit -> a) -> Parser a
 list c = do
   -- TODO-1: Handle parsing a list ✓
   -- Suggestion: use the sepBy command (see link above)
-  reservedOp "["
-  elements <- sepBy expr (reservedOp ",")
-  reservedOp "]"
-  return $ foldr (Op Cons) (Lit (LArray [])) elements
-  -- error ""
+  error ""
 
 fix :: Parser Expr
 fix = do
@@ -113,12 +109,15 @@ table :: Operators Expr
 -- TODO-CONCAT: Add concat operator. Make sure you have proper associativity!
 table = [
     [
-      infixOp "*" (Op Mul) Ex.AssocLeft,
-      infixOp ":" (Op Cons) Ex.AssocRight
+      infixOp "*" (Op Mul) Ex.AssocLeft
     ],
     [
       infixOp "+" (Op Add) Ex.AssocLeft
     , infixOp "-" (Op Sub) Ex.AssocLeft
+    ],
+    [
+      infixOp ":" (Op Cons) Ex.AssocRight
+    , infixOp "++" (Op Concat) Ex.AssocRight
     ],
     [
       infixOp "==" (Op Eql) Ex.AssocLeft
