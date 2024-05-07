@@ -21,7 +21,7 @@ import Syntax
 -- TODO-0: Bug! Check the github issues/pull-requests to try to fix this: 
 --       https://github.com/sdiehl/write-you-a-haskell  ✓
 integer :: Parser Integer
-integer = Tok.integer lexer
+integer = Tok.natural lexer
 
 variable :: Parser Expr
 variable = do
@@ -38,14 +38,18 @@ bool c = (reserved "True" >> return (c (LBool True)))
 -- https://hackage.haskell.org/package/parsec-3.1.17.0/docs/Text-Parsec.html#g:2
 list :: (Lit -> a) -> Parser a
 list c = do
+    _ <- Tok.symbol lexer "["
+    elements <- sepBy expr (Tok.symbol lexer ",")
+    _ <- Tok.symbol lexer "]"
+    return $ c (LArray elements)
   -- TODO-1: Handle parsing a list ✓
   -- Suggestion: use the sepBy command (see link above)
-  error ""
+  -- error ""
 
 fix :: Parser Expr
 fix = do
   reservedOp "fix"
-  Fix <$> expr
+  Fix <$> expr -- put expr in parens
 
 -- TODO-2: use patterns instead of identifiers for args
 lambda :: Parser Expr
@@ -99,14 +103,16 @@ aexp =
   <|> variable
 
 term :: Parser Expr
-term = Ex.buildExpressionParser table aexp
+term = aexp >>= \x ->
+                (many1 aexp >>= \xs -> return (foldl App x xs))
+                <|> return x
 
 infixOp :: String -> (a -> a -> a) -> Ex.Assoc -> Op a
 infixOp x f = Ex.Infix (reservedOp x >> return f)
 
 table :: Operators Expr
 -- TODO-1: Add cons operator. Make sure you have proper associativity! ✓
--- TODO-CONCAT: Add concat operator. Make sure you have proper associativity!
+-- TODO-CONCAT: Add concat operator. Make sure you have proper associativity! ✓
 table = [
     [
       infixOp "*" (Op Mul) Ex.AssocLeft

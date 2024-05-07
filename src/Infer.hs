@@ -18,19 +18,24 @@ import Data.Foldable (foldr)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+-- TypeEnv: Represents the type environment, a mapping from variable identifiers (Var) to their schemes (Scheme). Schemes are generalized types that may contain type variables, allowing for polymorphic functions.
 newtype TypeEnv = TypeEnv (Map.Map Var Scheme)
   deriving (Monoid, Semigroup)
 
+-- Unique: A simple structure for generating unique type variables
 newtype Unique = Unique { count :: Int }
 
+-- Infer: The inference monad, a combination of ExceptT for error handling (specifically TypeError) and State for managing stateful computations like generating unique identifiers.
 type Infer = ExceptT TypeError (State Unique)
 type Subst = Map.Map TVar Type
 
+-- TypeError: Enumerates possible type errors such as unification failures, infinite type errors, and unbound variable errors. These are critical for reporting where and how type inference fails.
 data TypeError
   = UnificationFail Type Type
   | InfiniteType TVar Type
   | UnboundVariable String
 
+-- runInfer: Executes an inference computation, initializing with a Unique counter and handling errors to return either a TypeError or a successfully inferred type wrapped in a Scheme.
 runInfer :: Infer (Subst, Type) -> Either TypeError Scheme
 runInfer m = case evalState (runExceptT m) initUnique of
   Left err  -> Left err
@@ -62,11 +67,13 @@ instance Substitutable Type where
   apply s t@(TVar a)     = Map.findWithDefault t a s
   apply s (t1 `TArrow` t2) = apply s t1 `TArrow` apply s t2
   -- TODO-1: How do you apply a substitution to an array?
+  apply s (TArray t) = TArray (apply s t)
 
   ftv TCon{}         = Set.empty
   ftv (TVar a)       = Set.singleton a
   ftv (t1 `TArrow` t2) = ftv t1 `Set.union` ftv t2
   -- TODO-1: What are the free variables of an array?
+  ftv (TArray t) = ftv t
 
 instance Substitutable Scheme where
   apply :: Subst -> Scheme -> Scheme
@@ -103,8 +110,10 @@ unify (l `TArrow` r) (l' `TArrow` r')  = do
 unify (TVar a) t = bind a t
 unify t (TVar a) = bind a t
 unify (TCon a) (TCon b) | a == b = return nullSubst
-unify t1 t2 = throwError $ UnificationFail t1 t2
 -- TODO-1: Unify the TArray type
+unify (TArray t1) (TArray t2) = unify t1 t2
+unify t1 t2 = throwError $ UnificationFail t1 t2
+
 
 bind ::  TVar -> Type -> Infer Subst
 bind a t
@@ -185,9 +194,19 @@ infer env ex = case ex of
   -- TODO-1: Handle the Cons operator
   -- Suggestion: Separate this from the other ops because the constraint
   --             is more generic than the other ops
+  Op Cons e1 e2 -> do
+    (s1, t1) <- infer env e1  -- Infer the type of the first element
+    (s2, t2) <- infer (apply s1 env) e2  -- Infer the type of the second element, applying previous substitution
+    s3 <- unify (apply s2 t2) (TArray t1)  -- Ensure the second expression is a list of the type of the first expression
+    return (s3 `compose` s2 `compose` s1, apply s3 (TArray t1))
 
   -- TODO-CONCAT: Handle the Concat operator
-
+  Op Concat e1 e2 -> do
+    (s1, t1) <- infer env e1  -- Infer type of the first list
+    (s2, t2) <- infer (apply s1 env) e2  -- Infer type of the second list, applying substitution from the first
+    s3 <- unify (apply s2 t1) (apply s2 t2)  -- Ensure both lists have the same type
+    return (s3 `compose` s2 `compose` s1, apply s3 t1)
+  
   Op op e1 e2 -> do
     inferPrim env [e1, e2] (ops op)
 
@@ -196,6 +215,21 @@ infer env ex = case ex of
   -- TODO-1: Handle an Array literal
   -- Suggestion: Use foldM with a folding function that unifies 
   --             the result of infering on each element of the array
+  Lit (LArray es) -> do
+    -- Start with a fresh type variable for the array elements
+    tv <- fresh
+    -- Fold over the elements to unify their types
+    (s, _) <- foldM (inferAndUnifyArrayElement env) (nullSubst, tv) es
+    -- Return the substitution and the array type
+    return (s, TArray (apply s tv))
+
+inferAndUnifyArrayElement :: TypeEnv -> (Subst, Type) -> Expr -> Infer (Subst, Type)
+inferAndUnifyArrayElement env (s, t) expr = do
+  (s', t') <- infer (apply s env) expr
+  s'' <- unify t (apply s' t')
+  let sFinal = s'' `compose` s' `compose` s
+  return (sFinal, apply sFinal t)
+ 
 
 inferPrim :: TypeEnv -> [Expr] -> Type -> Infer (Subst, Type)
 inferPrim env l t = do
@@ -226,6 +260,7 @@ normalize (Forall ts body) = Forall (fmap snd ord) (normtype body)
     fv (TArrow a b) = fv a ++ fv b
     fv (TCon _)   = []
     -- TODO-1: Handle TArray
+    fv (TArray t) = fv t
 
     normtype (TArrow a b) = TArrow (normtype a) (normtype b)
     normtype (TCon a)   = TCon a
@@ -234,3 +269,4 @@ normalize (Forall ts body) = Forall (fmap snd ord) (normtype body)
         Just x -> TVar x
         Nothing -> error "type variable not in signature"
     -- TODO-1: Handle TArray
+    normtype (TArray t) = TArray (normtype t)

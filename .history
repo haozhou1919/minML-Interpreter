@@ -1,0 +1,32 @@
+:quit
+let z = [1, 2] ++ [3, 4]
+let z = [1, 2] ++ [3, 4]
+:type g
+let g x = [x, x * 2, x * 3]
+:type f
+let f x = [x, x] 
+:type f x
+let f x = [x, x] 
+let z = [1, 2] ++ [3, 4] 
+:type y
+let y = True:[] 
+:type w
+let w = [];   
+let m = ["m", "d"]
+let m = [h, d]
+let m = [x, y]
+:type y
+let y = [True, False]
+:type x
+let x = [1, 2]
+let x = [1, 2]
+:quit
+:type x
+let x = 1;
+1+2
+[1, 2]
+[1]
+1+2
+1+2
+[1,2,3]
+[]

@@ -12,16 +12,19 @@ import Syntax
 import Control.Monad.Identity ( Identity(runIdentity) )
 import qualified Data.Map as Map
 
+-- Represents the runtime values your expressions can evaluate to, such as integers (VInt), booleans (VBool), closures (VClosure), and arrays (VArray).
 data Value
   = VInt Integer
   | VBool Bool
-  --| VClosure String Expr TermEnv
+  | VClosure String Expr TermEnv
   | VArray [Value]
-  | VClosure [(Pattern, Expr)] TermEnv -- This one is flexible per your implementation
+  -- | VClosure [(Pattern, Expr)] TermEnv -- This one is flexible per your implementation
   -- TODO-1: Create a way to store arrays (VArray) ✓
   -- TODO-2: Edit VClosure to store a list of patterns and expressions 
 
+-- TermEnv: A mapping from variable names to their corresponding values (Value). This is used to maintain the context during evaluation, especially when dealing with variables and scopes.
 type TermEnv = Map.Map String Value
+-- Interpreter t: An alias for Identity t, used here to simplify the structure of evaluation functions without involving complex monadic operations.
 type Interpreter t = Identity t
 
 instance MonadFail Identity where
@@ -36,7 +39,13 @@ instance Show Value where
   show (VInt n) = show n
   show (VBool n) = show n
   show VClosure{} = "<<closure>>"
-  -- TODO-1: Show VArr
+  -- TODO-1: Show VArr 
+  show (VArray xs) = "[" ++ showArray xs ++ "]"
+    where
+      showArray [] = ""
+      showArray [x] = show x
+      showArray (x:xs) = show x ++ ", " ++ showArray xs
+ 
 
 -- TODO-2: add a checkeq function to compare literals and values
 -- checkeq :: Lit -> Value -> Bool
@@ -50,6 +59,9 @@ instance Show Value where
 -- 4. Otherwise, check another pattern
 
 
+-- TermEnv: This is a dictionary mapping variable names (String) to their evaluated values (Value).
+-- Expr: The expression to be evaluated, which can be any construct defined in your Expr data type.
+-- Interpreter Value: This is an alias for Identity Value, meaning the function will compute and return a Value directly without involving complex monadic effects.
 eval :: TermEnv -> Expr -> Interpreter Value
 eval env expr = case expr of
   Lit (LInt k)  -> return $ VInt k
@@ -57,7 +69,11 @@ eval env expr = case expr of
 
   -- TODO-1: Handle evaluating arrays
   -- Suggestion: Use a recursive call to evaluate each element one at a time
+  Lit (LArray xs) -> do
+    let arr = map (runIdentity . eval env) xs
+    return $ VArray arr
 
+  -- This case fetches the value of a variable from the environment. The use of Just implies an assumption that the variable is always present in the environment
   Var x -> do
     let Just v = Map.lookup x env
     return v
@@ -65,8 +81,20 @@ eval env expr = case expr of
   -- TODO-1: Add the Cons Operator
   -- Suggestion: Create a separate handler for this case
   --             because Cons is not the same type as other binop
+  Op Cons a b -> do
+    a' <- eval env a    -- Evaluate the first expression
+    b' <- eval env b    -- Evaluate the second expression
+    case (a', b') of
+      (val, VArray vals) -> return $ VArray (val : vals)  -- Prepend if types are compatible
+      _ -> fail "Type mismatch for Cons operation"        -- Fail if types are not compatible
 
   -- TODO-CONCAT: Add the Concat Operator
+  Op Concat a b -> do
+    a' <- eval env a  -- Evaluate the first expression to get the first list
+    b' <- eval env b  -- Evaluate the second expression to get the second list
+    case (a', b') of
+      (VArray vals1, VArray vals2) -> return $ VArray (vals1 ++ vals2)  -- Concatenate lists
+      _ -> fail "Concat operation requires both operands to be arrays"  -- Handle type errors
 
   Op op a b -> do
     VInt a' <- eval env a

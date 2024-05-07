@@ -54,6 +54,7 @@ instance Pretty Type where
   ppr p (TVar a) = ppr p a
   ppr _ (TCon a) = text a
   -- TODO-1: Add the TArray printing
+  ppr p (TArray a) = text "[" <> ppr p a <> text "]"
 
 instance Pretty Scheme where
   ppr :: Int -> Scheme -> Doc
@@ -67,7 +68,9 @@ instance Pretty Binop where
   ppr _ Mul = text "-"
   ppr _ Eql = text "=="
   -- TODO-1: Add cons handling
+  ppr _ Cons = text ":"
   -- TODO-2: Add concat handling
+  ppr _ Concat = text "++"
 
 instance Pretty Expr where
   ppr :: Int -> Expr -> Doc
@@ -87,7 +90,7 @@ instance Pretty Lit where
   ppr _ (LBool True) = text "True"
   ppr _ (LBool False) = text "False"
   -- TODO-1: Add LArray case
-
+  ppr p (LArray xs) = text "[" <> hcat (punctuate (text ", ") (fmap (ppr p) xs)) <> text "]"
 -- TODO-2: Add the Pretty Pattern instance
 
 instance Show TypeError where
