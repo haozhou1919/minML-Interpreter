@@ -77,24 +77,24 @@ evalDef env (nm, ex) = tmctx'
 
 exec :: Bool -> L.Text -> Repl ()
 exec update source = do
-  -- Debug: Print the source argument to see what is being parsed
-  liftIO $ putStrLn "Test: "
-  liftIO $ print source
+  -- -- Debug: Print the source argument to see what is being parsed
+  -- liftIO $ putStrLn "Test: "
+  -- liftIO $ print source
 
   -- Get the current interpreter state
   st <- get
 
-  -- Debug: Test parsing a custom string
-  testParse <- hoistErr $ parseExpr "3 + 2"
-  liftIO $ putStrLn "Test Parsing '3 + 2':"
-  liftIO $ putStrLn $ ppexpr testParse
+  -- -- Debug: Test parsing a custom string
+  -- testParse <- hoistErr $ parseExpr "3 + 2"
+  -- liftIO $ putStrLn "Test Parsing '3 + 2':"
+  -- liftIO $ putStrLn $ ppexpr testParse
 
   -- Parser ( returns AST )
   mod <- hoistErr $ parseModule "<stdin>" source
 
-  -- Debug: Print the results of the parseModule call
-  liftIO $ putStrLn "Parsed Module:"
-  liftIO $ putStrLn ("Parsed: " ++ concatMap (\(x, y) -> show x ++ " := " ++ ppexpr y ++ "\n") mod)
+  -- -- Debug: Print the results of the parseModule call
+  -- liftIO $ putStrLn "Parsed Module:"
+  -- liftIO $ putStrLn ("Parsed: " ++ concatMap (\(x, y) -> show x ++ " := " ++ ppexpr y ++ "\n") mod)
 
   -- Type Inference ( returns Typing Environment )
   tyctx' <- hoistErr $ inferTop (tyctx st) mod
@@ -113,9 +113,13 @@ exec update source = do
     Just ex -> do
       let (val, _) = runEval (tmctx st') "it"  ex
       showOutput (show val) st'
-      -- Debug: Print the evaluated expression and its result
-      liftIO $ putStrLn "Evaluation Result:"
-      showOutput (show val) st'
+      -- -- Debug: Print the evaluated expression and its result
+      -- liftIO $ putStrLn "Evaluation Result:"
+      -- showOutput (show val) st'
+  
+  -- Debug: Print the new interpreter state
+  liftIO $ print source
+  liftIO $ print mod
 
 showOutput :: String -> IState -> Repl ()
 showOutput arg st = do

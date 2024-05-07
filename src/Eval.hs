@@ -11,14 +11,15 @@ import Syntax
 
 import Control.Monad.Identity ( Identity(runIdentity) )
 import qualified Data.Map as Map
+import Control.Exception (throw, Exception)
 
 -- Represents the runtime values your expressions can evaluate to, such as integers (VInt), booleans (VBool), closures (VClosure), and arrays (VArray).
 data Value
   = VInt Integer
   | VBool Bool
-  | VClosure String Expr TermEnv
+  -- | VClosure String Expr TermEnv
   | VArray [Value]
-  -- | VClosure [(Pattern, Expr)] TermEnv -- This one is flexible per your implementation
+  | VClosure [(Pattern, Expr)] TermEnv -- This one is flexible per your implementation
   -- TODO-1: Create a way to store arrays (VArray) ✓
   -- TODO-2: Edit VClosure to store a list of patterns and expressions 
 
@@ -48,7 +49,17 @@ instance Show Value where
  
 
 -- TODO-2: add a checkeq function to compare literals and values
--- checkeq :: Lit -> Value -> Bool
+checkeq :: Lit -> Value -> Bool
+checkeq (LInt i) (VInt v) = i == v
+checkeq (LBool b) (VBool v) = b == v
+checkeq (LArray ls) (VArray vs) =
+    -- Check if the lengths of both lists are the same and recursively check each corresponding element
+    length ls == length vs && all (uncurry checkeq) (zip (map evalLit ls) vs)
+  where
+    evalLit :: Expr -> Lit  -- Assuming you have a function to evaluate Expr to Lit, adjust as per actual implementation
+    evalLit (Lit l) = l
+    evalLit _ = error "Non-literal in array literal"
+checkeq _ _ = False
 
 -- TODO-2: Add a match function to handle pattern matching
 -- match :: [(Pattern, Expr)] -> Value -> (Expr, TermEnv)
@@ -57,6 +68,14 @@ instance Show Value where
 -- 2. Is the pattern a PLit? -> match if the argument is equivalent to the literal
 -- 3. Is the pattern a (x:xs) structure? -> match if the argument is a non-empty list
 -- 4. Otherwise, check another pattern
+match :: [(Pattern, Expr)] -> Value -> TermEnv -> (Expr, TermEnv)
+match [] _ _ = error "Pattern match failed"
+match ((PVar x, body):_) val env = (body, Map.insert x val env)
+match ((PLit l, body):ps) val env
+  | checkeq l val = (body, env)
+  | otherwise = match ps val env
+match ((PCons x xs, body):ps) (VArray (v:vs)) env = match ps (VArray vs) (Map.insert x v (Map.insert xs (VArray vs) env))
+match (_:ps) val env = match ps val env
 
 
 -- TermEnv: This is a dictionary mapping variable names (String) to their evaluated values (Value).
@@ -103,15 +122,19 @@ eval env expr = case expr of
 
   Lam x body ->
     -- TODO-2: Change VClosure to store a list of patterns and expressions
-    return (VClosure x body env)
+    return $ VClosure [(x, body)] env
 
   App fun arg -> do
     -- TODO-2: Implement pattern matching in App
-    VClosure x body clo <- eval env fun
-    argv <- eval env arg
-    let nenv = Map.insert x argv clo
-    eval nenv body
-
+    -- Evaluate the function expression to get a function value
+    funcVal <- eval env fun
+    -- Evaluate the argument expression
+    argVal <- eval env arg
+    -- Apply the function to the argument, using pattern matching for closures
+    case funcVal of
+        VClosure patterns cloEnv -> applyClosure patterns argVal cloEnv
+        _ -> fail "Type error: trying to apply a non-function value"
+          
   Let x e body -> do
     e' <- eval env e
     let nenv = Map.insert x e' env
@@ -126,6 +149,12 @@ eval env expr = case expr of
   Fix e -> do
     eval env (App e (Fix e))
 
+-- Helper function to apply a closure to an argument
+applyClosure :: [(Pattern, Expr)] -> Value -> TermEnv -> Interpreter Value
+applyClosure patterns argVal env = do
+    let (expr, newEnv) = match patterns argVal env
+    eval newEnv expr
+
 binop :: Binop -> Integer -> Integer -> Value
 binop Add a b = VInt $ a + b
 binop Mul a b = VInt $ a * b
@@ -135,6 +164,6 @@ binop Eql a b = VBool $ a == b
 -- TODO-2: Make sure that when you have a new definition for a function, you append the 
 --         (pattern, body) to the environment instead of overwriting it
 runEval :: TermEnv -> String -> Expr -> (Value, TermEnv)
-runEval env nm ex =
-  let res = runIdentity (eval env ex) in
-  (res, Map.insert nm res env)
+runEval env nm ex = runIdentity $ do
+  val <- eval env ex
+  return (val, Map.insert nm val env)

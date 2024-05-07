@@ -72,6 +72,12 @@ instance Pretty Binop where
   -- TODO-2: Add concat handling
   ppr _ Concat = text "++"
 
+instance Pretty Pattern where
+  ppr :: Int -> Pattern -> Doc
+  ppr p (PVar x) = ppr p x  -- variable pattern
+  ppr p (PLit l) = ppr p l  -- literal pattern
+  ppr p (PCons head tail) = ppr p head <+> text ":" <+> ppr p tail  -- constructor pattern for lists
+
 instance Pretty Expr where
   ppr :: Int -> Expr -> Doc
   ppr p (Var a) = ppr p a

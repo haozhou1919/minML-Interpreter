@@ -3,11 +3,11 @@ module Syntax where
 -- Define a type alias 'Var' for String to represent variable names
 type Var = String
 
--- TODO-2: Change lambdas to use Pattern struct
+-- TODO-2: Change lambdas to use Pattern struct ✓
 data Expr -- Define a data type 'Expr' for representing expressions in a language
   = Var Var                 -- A variable
   | App Expr Expr           -- An application of one expression to another
-  | Lam Var Expr            -- A lambda (anonymous function) expression with a parameter and a body
+  | Lam Pattern Expr        -- A lambda (anonymous function) expression with a parameter and a body
   | Let Var Expr Expr       -- A let-binding for defining local variables
   | Lit Lit                 -- A literal value, Lit constructor takes a Lit value(defined below)
   | If Expr Expr Expr       -- An if expression with a condition, then branch, and else branch
@@ -19,7 +19,7 @@ data Expr -- Define a data type 'Expr' for representing expressions in a languag
 data Lit -- Define a data type 'Lit' for literal values
   = LInt Integer            -- An integer literal
   | LBool Bool              -- A boolean literal
-  | LArray [Expr]            -- An array literal                   [x] need REDO
+  | LArray [Expr]           -- An array literal                   
   deriving (Show, Eq, Ord)  -- Derive Show, Eq, and Ord instances for convenience
 
 -- TODO-1: Add a Cons operator ✓

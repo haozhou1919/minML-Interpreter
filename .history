@@ -1,4 +1,23 @@
 :quit
+let f (1:[1,2]) = 2
+let f [] = 0
+let f True = False;
+let f 0 = 2
+let f 1 = 1
+let f (1:[0, 1]) = 1
+f (1:[0, 1]) = 1
+f 1 = 1
+f True = 1
+f (1:[1]) = 1
+f 1
+f 0
+let f 0 = 0
+et f 0 = 0
+:quit
+let f 1 = 1
+let f 0 = 0
+let f 0 = 0
+:quit
 let z = [1, 2] ++ [3, 4]
 let z = [1, 2] ++ [3, 4]
 :type g

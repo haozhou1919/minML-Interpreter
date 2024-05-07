@@ -55,10 +55,10 @@ fix = do
 lambda :: Parser Expr
 lambda = do
   reservedOp "\\"
-  args <- many identifier
+  args <- many parsePattern  -- Parse patterns instead of identifiers
   reservedOp "->"
   body <- expr
-  return $ foldr Lam body args
+  return $ foldr Lam body args  -- Construct lambda using patterns
 
 letin :: Parser Expr
 letin = do
@@ -140,10 +140,10 @@ letdecl :: Parser Binding
 letdecl = do
   reserved "let"
   name <- identifier
-  args <- many identifier
+  patterns <- many parsePattern  -- Parse patterns instead of identifiers
   reservedOp "="
   body <- expr
-  return (name, foldr Lam body args)
+  return (name, foldr Lam body patterns)  -- Construct lambda using patterns
 
 -- TODO-2: use patterns instead of identifiers for args
 letrecdecl :: Parser (String, Expr)
@@ -151,10 +151,36 @@ letrecdecl = do
   reserved "let"
   reserved "rec"
   name <- identifier
-  args <- many identifier
+  patterns <- many parsePattern  -- Parse patterns instead of identifiers
   reservedOp "="
   body <- expr
-  return (name, Fix $ foldr Lam body (name:args))
+  -- Wrap the body in a `Fix` and construct the function with patterns
+  return (name, Fix $ foldr Lam body (PVar name : patterns))
+
+parsePattern :: Parser Pattern
+parsePattern = parsePLit <|> parsePVar <|> parsePCons
+
+parsePVar :: Parser Pattern
+parsePVar = PVar <$> identifier
+
+parsePLit :: Parser Pattern
+parsePLit = PLit <$> parseLiteral
+
+parseLiteral :: Parser Lit
+parseLiteral = parseLitBool <|> parseLitInt
+
+parseLitInt :: Parser Lit
+parseLitInt = LInt <$> integer
+
+parseLitBool :: Parser Lit
+parseLitBool = LBool True <$ reserved "True"
+           <|> LBool False <$ reserved "False"
+
+parsePCons :: Parser Pattern
+parsePCons = do
+  head <- identifier
+  reservedOp ":"
+  PCons head <$> identifier
 
 val :: Parser Binding
 val = do

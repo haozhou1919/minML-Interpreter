@@ -156,6 +156,19 @@ lookupEnv (TypeEnv env) x =
     Just s  -> do t <- instantiate s
                   return (nullSubst, t)
 
+extendEnvWithPattern :: TypeEnv -> Pattern -> Type -> TypeEnv
+extendEnvWithPattern env pat t = case pat of
+  PVar x -> env `extend` (x, Forall [] t)
+  PCons x xs -> env `extend` (x, Forall [] t) `extend` (xs, Forall [] (TArray t))
+  PLit _ -> env
+
+inferPattern :: TypeEnv -> Pattern -> Type -> Infer (Subst, Type)
+inferPattern env pat t = case pat of
+  PVar x -> return (nullSubst, t)
+  PCons x xs -> return (nullSubst, TArray t)
+  PLit _ -> return (nullSubst, t)
+
+
 infer :: TypeEnv -> Expr -> Infer (Subst, Type)
 infer env ex = case ex of
 
@@ -163,11 +176,21 @@ infer env ex = case ex of
 
   -- TODO-2: Handle the different pattern values of `x`
   --         Each has its own implications for typing
-  Lam x e -> do
+  Lam pat e -> do
+    -- Generate a fresh type variable for the pattern
     tv <- fresh
-    let env' = env `extend` (x, Forall [] tv)
-    (s1, t1) <- infer env' e
-    return (s1, apply s1 tv `TArrow` t1)
+    -- Infer the type of the pattern and update the environment
+    (patSubst, patType) <- inferPattern env pat tv
+    -- Apply the inferred pattern substitution to the environment
+    let env' = apply patSubst env
+    -- Extend the environment with the new bindings from the pattern
+    let env'' = extendEnvWithPattern env' pat patType
+    -- Infer the type of the body in the updated environment
+    (bodySubst, bodyType) <- infer env'' e
+    -- Combine the substitutions
+    let finalSubst = bodySubst `compose` patSubst
+    -- Return the combined substitution and the function type
+    return (finalSubst, patType `TArrow` bodyType)
 
   App e1 e2 -> do
     tv <- fresh
