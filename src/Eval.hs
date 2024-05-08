@@ -74,9 +74,11 @@ match ((PVar x, body):_) val env = (body, Map.insert x val env)
 match ((PLit l, body):ps) val env
   | checkeq l val = (body, env)
   | otherwise = match ps val env
-match ((PCons x xs, body):ps) (VArray (v:vs)) env = match ps (VArray vs) (Map.insert x v (Map.insert xs (VArray vs) env))
+match ((PCons x xs, body):ps) val@(VArray vs) env
+  | null vs = match ps val env
+  | otherwise = let (v:vs') = vs in match ps (VArray vs') (Map.insert x v (Map.insert xs (VArray vs') env))
+match ((PVar x, body):ps) val env = (body, Map.insert x val env)
 match (_:ps) val env = match ps val env
-
 
 -- TermEnv: This is a dictionary mapping variable names (String) to their evaluated values (Value).
 -- Expr: The expression to be evaluated, which can be any construct defined in your Expr data type.

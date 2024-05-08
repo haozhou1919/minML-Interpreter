@@ -72,6 +72,9 @@ identifier = Tok.identifier lexer
 parens :: Parser a -> Parser a         -- Parse expressions within parentheses
 parens = Tok.parens lexer
 
+brackets   = Tok.brackets lexer
+symbol     = Tok.symbol lexer
+
 semiSep :: Parser a -> Parser [a]      -- Parse semicolon-separated expressions
 semiSep = Tok.semiSep lexer
 

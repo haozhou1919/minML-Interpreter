@@ -38,9 +38,9 @@ bool c = (reserved "True" >> return (c (LBool True)))
 -- https://hackage.haskell.org/package/parsec-3.1.17.0/docs/Text-Parsec.html#g:2
 list :: (Lit -> a) -> Parser a
 list c = do
-    _ <- Tok.symbol lexer "["
+    _ <- symbol "["
     elements <- sepBy expr (Tok.symbol lexer ",")
-    _ <- Tok.symbol lexer "]"
+    _ <- symbol "]"
     return $ c (LArray elements)
   -- TODO-1: Handle parsing a list ✓
   -- Suggestion: use the sepBy command (see link above)
@@ -158,7 +158,14 @@ letrecdecl = do
   return (name, Fix $ foldr Lam body (PVar name : patterns))
 
 parsePattern :: Parser Pattern
-parsePattern = parsePLit <|> parsePVar <|> parsePCons
+parsePattern = parsePList <|> parsePLit <|> parsePVar <|> parsePCons
+
+parsePList :: Parser Pattern
+parsePList = do
+  _ <- Tok.symbol lexer "["
+  elements <- sepBy expr (Tok.symbol lexer ",")
+  _ <- Tok.symbol lexer "]"
+  return $ PLit (LArray elements)
 
 parsePVar :: Parser Pattern
 parsePVar = PVar <$> identifier
@@ -178,10 +185,13 @@ parseLitBool = LBool True <$ reserved "True"
 
 parsePCons :: Parser Pattern
 parsePCons = do
+  _ <- Tok.symbol lexer "("
   head <- identifier
   reservedOp ":"
-  PCons head <$> identifier
-
+  tail <- identifier
+  _ <- Tok.symbol lexer ")"
+  return $ PCons head tail
+  
 val :: Parser Binding
 val = do
   ex <- expr

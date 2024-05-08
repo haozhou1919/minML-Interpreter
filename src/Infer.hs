@@ -165,7 +165,15 @@ extendEnvWithPattern env pat t = case pat of
 inferPattern :: TypeEnv -> Pattern -> Type -> Infer (Subst, Type)
 inferPattern env pat t = case pat of
   PVar x -> return (nullSubst, t)
-  PCons x xs -> return (nullSubst, TArray t)
+  PCons head tail -> do
+    elemType <- fresh  -- Fresh type variable for elements
+    (s1, t1) <- inferPattern env (PVar head) elemType
+    (s2, t2) <- inferPattern env (PVar tail) (TArray elemType)  -- Tail must be an array of elemType
+    s3 <- unify (apply s2 t2) (TArray elemType)  -- Unify the expected type t with TArray elemType
+    return (s3 `compose` s2 `compose` s1, TArray (apply s3 t))  -- Combine substitutions and return them
+  PLit (LBool _) -> return (nullSubst, TCon "Bool")  -- The type of a boolean literal is Bool
+  PLit (LInt _) -> return (nullSubst, TCon "Int")  -- The type of an integer literal is Int
+  PLit (LArray _) -> return (nullSubst, TArray t)  -- The type of an array literal is TArray t
   PLit _ -> return (nullSubst, t)
 
 
