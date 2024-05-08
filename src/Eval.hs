@@ -70,14 +70,14 @@ checkeq _ _ = False
 -- 4. Otherwise, check another pattern
 match :: [(Pattern, Expr)] -> Value -> TermEnv -> (Expr, TermEnv)
 match [] _ _ = error "Pattern match failed"
-match ((PVar x, body):_) val env = (body, Map.insert x val env)
 match ((PLit l, body):ps) val env
   | checkeq l val = (body, env)
   | otherwise = match ps val env
-match ((PCons x xs, body):ps) val@(VArray vs) env
-  | null vs = match ps val env
-  | otherwise = let (v:vs') = vs in match ps (VArray vs') (Map.insert x v (Map.insert xs (VArray vs') env))
-match ((PVar x, body):ps) val env = (body, Map.insert x val env)
+match ((PCons x xs, body):ps) (VArray (v:vs)) env =
+  (body, Map.insert x v (Map.insert xs (VArray vs) env))
+match ((PCons x xs, body):ps) (VArray []) env =
+  (body, Map.insert x (VArray []) (Map.insert xs (VArray []) env))
+match ((PVar x, body):_) val env = (body, Map.insert x val env)
 match (_:ps) val env = match ps val env
 
 -- TermEnv: This is a dictionary mapping variable names (String) to their evaluated values (Value).
@@ -168,4 +168,10 @@ binop Eql a b = VBool $ a == b
 runEval :: TermEnv -> String -> Expr -> (Value, TermEnv)
 runEval env nm ex = runIdentity $ do
   val <- eval env ex
-  return (val, Map.insert nm val env)
+  let updatedEnv = Map.insertWith extendPatterns nm val env
+  return (val, updatedEnv)
+
+-- Add new patterns to an existing function closure
+extendPatterns :: Value -> Value -> Value
+extendPatterns (VClosure newPatterns _) (VClosure existingPatterns env) = VClosure (existingPatterns ++ newPatterns) env
+extendPatterns _ _ = error "Trying to extend non-closure value"
