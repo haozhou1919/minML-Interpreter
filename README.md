@@ -1,12 +1,12 @@
 # Part 0: Familiarity and a bug fix
 
 Stephen Diehl has put a lot of effort into building an educational interpreter
-for a small language minLM. LM is a language we didn't look at but will probably
+for a small language minML. ML is a language we didn't look at but will probably
 appear quite familiar after working with Haskell.
 
 For example, here are a few definitions (from [test.ml](test.ml)):
 
-```lm
+```ml
 let x = 0;
 let compose f g = \x -> f (g x);
 let twice f x = f (f x);
