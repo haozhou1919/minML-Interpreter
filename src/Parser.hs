@@ -21,7 +21,7 @@ import Syntax
 -- TODO-0: Bug! Check the github issues/pull-requests to try to fix this: 
 --       https://github.com/sdiehl/write-you-a-haskell  ✓
 integer :: Parser Integer
-integer = Tok.integer lexer
+integer = Tok.natural lexer
 
 variable :: Parser Expr
 variable = do
@@ -36,27 +36,29 @@ bool c = (reserved "True" >> return (c (LBool True)))
     <|> (reserved "False" >> return (c (LBool False)))
 
 -- https://hackage.haskell.org/package/parsec-3.1.17.0/docs/Text-Parsec.html#g:2
-list :: Parser Expr
+list :: (Lit -> a) -> Parser a
 list c = do
+    _ <- symbol "["
+    elements <- sepBy expr (Tok.symbol lexer ",")
+    _ <- symbol "]"
+    return $ c (LArray elements)
   -- TODO-1: Handle parsing a list ✓
   -- Suggestion: use the sepBy command (see link above)
-  elems <- brackets (sepBy expr comma)
-  return (c (LArray elems))
   -- error ""
 
 fix :: Parser Expr
 fix = do
   reservedOp "fix"
-  Fix <$> expr
+  Fix <$> expr -- put expr in parens
 
 -- TODO-2: use patterns instead of identifiers for args
 lambda :: Parser Expr
 lambda = do
   reservedOp "\\"
-  args <- many identifier
+  args <- many parsePattern  -- Parse patterns instead of identifiers
   reservedOp "->"
   body <- expr
-  return $ foldr Lam body args
+  return $ foldr Lam body args  -- Construct lambda using patterns
 
 letin :: Parser Expr
 letin = do
@@ -101,22 +103,26 @@ aexp =
   <|> variable
 
 term :: Parser Expr
-term = Ex.buildExpressionParser table aexp
+term = aexp >>= \x ->
+                (many1 aexp >>= \xs -> return (foldl App x xs))
+                <|> return x
 
 infixOp :: String -> (a -> a -> a) -> Ex.Assoc -> Op a
 infixOp x f = Ex.Infix (reservedOp x >> return f)
 
 table :: Operators Expr
 -- TODO-1: Add cons operator. Make sure you have proper associativity! ✓
--- TODO-CONCAT: Add concat operator. Make sure you have proper associativity!
+-- TODO-CONCAT: Add concat operator. Make sure you have proper associativity! ✓
 table = [
     [
-      infixOp "*" (Op Mul) Ex.AssocLeft,
-      infixOp ":" (Op Cons) Ex.AssocRight
+      infixOp "*" (Op Mul) Ex.AssocLeft
     ],
     [
       infixOp "+" (Op Add) Ex.AssocLeft
     , infixOp "-" (Op Sub) Ex.AssocLeft
+    ],
+    [
+      infixOp ":" (Op Cons) Ex.AssocRight
     , infixOp "++" (Op Concat) Ex.AssocRight
     ],
     [
@@ -134,10 +140,10 @@ letdecl :: Parser Binding
 letdecl = do
   reserved "let"
   name <- identifier
-  args <- many identifier
+  patterns <- many parsePattern  -- Parse patterns instead of identifiers
   reservedOp "="
   body <- expr
-  return (name, foldr Lam body args)
+  return (name, foldr Lam body patterns)  -- Construct lambda using patterns
 
 -- TODO-2: use patterns instead of identifiers for args
 letrecdecl :: Parser (String, Expr)
@@ -145,11 +151,47 @@ letrecdecl = do
   reserved "let"
   reserved "rec"
   name <- identifier
-  args <- many identifier
+  patterns <- many parsePattern  -- Parse patterns instead of identifiers
   reservedOp "="
   body <- expr
-  return (name, Fix $ foldr Lam body (name:args))
+  -- Wrap the body in a `Fix` and construct the function with patterns
+  return (name, Fix $ foldr Lam body (PVar name : patterns))
 
+parsePattern :: Parser Pattern
+parsePattern = parsePList <|> parsePLit <|> parsePVar <|> parsePCons
+
+parsePList :: Parser Pattern
+parsePList = do
+  _ <- Tok.symbol lexer "["
+  elements <- sepBy expr (Tok.symbol lexer ",")
+  _ <- Tok.symbol lexer "]"
+  return $ PLit (LArray elements)
+
+parsePVar :: Parser Pattern
+parsePVar = PVar <$> identifier
+
+parsePLit :: Parser Pattern
+parsePLit = PLit <$> parseLiteral
+
+parseLiteral :: Parser Lit
+parseLiteral = parseLitBool <|> parseLitInt
+
+parseLitInt :: Parser Lit
+parseLitInt = LInt <$> integer
+
+parseLitBool :: Parser Lit
+parseLitBool = LBool True <$ reserved "True"
+           <|> LBool False <$ reserved "False"
+
+parsePCons :: Parser Pattern
+parsePCons = do
+  _ <- Tok.symbol lexer "("
+  head <- identifier
+  reservedOp ":"
+  tail <- identifier
+  _ <- Tok.symbol lexer ")"
+  return $ PCons head tail
+  
 val :: Parser Binding
 val = do
   ex <- expr
