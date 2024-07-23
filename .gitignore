@@ -1,0 +1,17 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio Code
+.vscode/
+
+# General
+*.log
+*.tmp
+*.cache
+*.DS_Store
+#*.gitignore
+
+.history
